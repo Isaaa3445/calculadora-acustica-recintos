@@ -217,3 +217,59 @@ plt.legend()
 
 # Mostrar la gráfica
 plt.show()
+
+c = 343
+
+# Recorrido libre medio
+l = 4*V/S
+
+# Usamos RT a 500 Hz
+T = RT_sabine[2]
+
+# Numero promedio de reflexiones
+N = c*T/l
+
+# Tiempo entre reflexiones
+t_ref = l/c
+
+# Suposiciones para la fuente
+W = 0.01
+r = 2
+
+# Intensidad acustica
+I = W/(4*np.pi*r**2)
+
+# Nivel de intensidad
+LI = 10*np.log10(I/1e-12)
+
+# Campo reverberado
+Ir = 4*W/A[2]
+
+# Constante de sala
+R = A[2]/(1-alpha_prom[2])
+
+# Nivel de potencia sonora
+Lw = 10*np.log10(W/1e-12)
+
+# Nivel de presion sonora total
+Lp = Lw + 10*np.log10((Q/(4*np.pi*r**2)) + (4/R))
+
+# Distancia critica
+Dc = 0.057*np.sqrt(Q*V/T)
+
+# Absorcion del aire
+m = 0.001
+A_aire = 4*m*V
+
+print("\nPARAMETROS ACUSTICOS ADICIONALES\n")
+
+print("Recorrido libre medio:",round(l,2),"m")
+print("Numero promedio de reflexiones:",round(N,2))
+print("Tiempo entre reflexiones:",round(t_ref,4),"s")
+print("Intensidad acustica:",I,"W/m2")
+print("Nivel de intensidad:",round(LI,2),"dB")
+print("Campo reverberado:",round(Ir,6))
+print("Constante de sala:",round(R,2))
+print("Nivel de presion sonora total:",round(Lp,2),"dB")
+print("Distancia critica:",round(Dc,2),"m")
+print("Absorcion del aire:",round(A_aire,4))
