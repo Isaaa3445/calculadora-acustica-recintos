@@ -1,275 +1,204 @@
-# Importamos las librerías necesarias
-# numpy se usa para cálculos matemáticos
-# matplotlib se usa para hacer la gráfica
 import numpy as np
 import matplotlib.pyplot as plt
 
+# CONSTANTES FÍSICAS
+c = 343.0            # velocidad del sonido en aire (m/s)
+I0 = 1e-12           # intensidad acústica de referencia (W/m²)
+W = 1e-3             # potencia acústica de la fuente (W)
+Lw = 90.0            # nivel de potencia sonora de la fuente (dB)
+Q = 2.0              # factor de directividad de la fuente
+r = 2.0              # distancia entre fuente y receptor (m)
+m = 0.003            # coeficiente de absorción del aire
 
-# Bandas de frecuencia que se usarán en el análisis acústico
-# Son bandas de octava típicas en acústica de recintos
-freq = [125, 250, 500, 1000, 2000, 4000]
+# bandas de frecuencia usadas en acústica arquitectónica
+frecuencias = np.array([125,250,500,1000,2000,4000])
 
-
-# Factor de directividad de la fuente
-# Se fija en 2 porque se asume que la fuente está cerca de una pared
-Q = 2
-
-
-# ------------------------------------------------
-# BASE DE DATOS DE MATERIALES ACÚSTICOS
-# ------------------------------------------------
-# Diccionario donde cada material tiene sus coeficientes
-# de absorción para cada banda de frecuencia
+# BASE DE DATOS DE MATERIALES
+# coeficientes de absorción por banda de frecuencia
 materiales = {
 
-"concreto":{125:0.01,250:0.01,500:0.02,1000:0.02,2000:0.02,4000:0.02},
-
-"vidrio":{125:0.18,250:0.06,500:0.04,1000:0.03,2000:0.02,4000:0.02},
-
-"madera":{125:0.15,250:0.11,500:0.10,1000:0.07,2000:0.06,4000:0.07},
-
-"drywall":{125:0.29,250:0.10,500:0.05,1000:0.04,2000:0.07,4000:0.09},
-
-"alfombra":{125:0.08,250:0.24,500:0.57,1000:0.69,2000:0.71,4000:0.73},
-
-"panel_acustico":{125:0.25,250:0.60,500:0.90,1000:0.95,2000:0.95,4000:0.90},
-
-"cortina":{125:0.10,250:0.35,500:0.55,1000:0.72,2000:0.70,4000:0.65},
-
-"yeso":{125:0.02,250:0.02,500:0.03,1000:0.04,2000:0.05,4000:0.05},
-
-"aluminio":{125:0.01,250:0.01,500:0.02,1000:0.02,2000:0.02,4000:0.02}
+"concreto":[0.02,0.02,0.03,0.04,0.05,0.07],
+"vidrio":[0.18,0.06,0.04,0.03,0.02,0.02],
+"madera":[0.15,0.11,0.10,0.07,0.06,0.07],
+"aluminio":[0.01,0.01,0.02,0.02,0.02,0.02],
+"baldosa":[0.01,0.01,0.02,0.02,0.02,0.02],
+"drywall":[0.29,0.10,0.05,0.04,0.07,0.09]
 
 }
 
-
-# ------------------------------------------------
-# INGRESO DE DIMENSIONES DEL RECINTO
-# ------------------------------------------------
-
-# Se pide al usuario ingresar las dimensiones del recinto
+# DIMENSIONES DEL RECINTO
+# el usuario introduce dimensiones del recinto
 largo = float(input("Largo del recinto (m): "))
 ancho = float(input("Ancho del recinto (m): "))
 alto = float(input("Altura del recinto (m): "))
 
-# Se calcula el volumen del recinto
+# volumen del recinto
 V = largo * ancho * alto
 
+# cálculo de superficies
+S_piso = largo * ancho
+S_techo = S_piso
 
-# ------------------------------------------------
-# INGRESO DE MATERIALES DEL RECINTO
-# ------------------------------------------------
+# superficie total de paredes
+S_pared_total = 2*(largo*alto) + 2*(ancho*alto)
 
-# Se pregunta cuántos materiales hay en el recinto
-n = int(input("¿Cuántos materiales tiene el recinto?: "))
+# superficie total del recinto
+S_total = 2*S_piso + S_pared_total
 
-# Listas donde se guardarán áreas y coeficientes
-areas = []
-coef = []
-
-# Se muestran los materiales disponibles
+# SELECCIÓN DE MATERIALES
+# mostrar materiales disponibles
 print("\nMateriales disponibles:")
-for m in materiales:
-    print("-", m)
+for mtl in materiales:
+    print("-",mtl)
 
+# usuario selecciona material de piso y techo
+piso = input("\nMaterial del piso: ")
+techo = input("Material del techo: ")
 
-# Ciclo para ingresar cada material
+# se obtienen coeficientes de absorción de la base de datos
+alpha_piso = np.array(materiales[piso])
+alpha_techo = np.array(materiales[techo])
+
+# MATERIALES EN PAREDES
+# permite usar varios materiales en paredes
+n = int(input("\nNúmero de materiales en paredes: "))
+
+# vector de absorción acumulada de paredes
+A_pared = np.zeros(len(frecuencias))
+
 for i in range(n):
 
-    print("\nMaterial", i+1)
+    print("\nMaterial",i+1)
 
-    # Área de la superficie que tiene ese material
+    mat = input("Nombre material: ")
     area = float(input("Área (m2): "))
 
-    # Nombre del material
-    nombre = input("Nombre del material: ")
+    # coeficientes del material seleccionado
+    alpha = np.array(materiales[mat])
 
-    # Guardamos el área en la lista
-    areas.append(area)
+    # absorción equivalente de esa sección
+    A_pared += area * alpha
 
-    # Guardamos los coeficientes del material
-    coef.append(materiales[nombre])
+# ABSORCIÓN EQUIVALENTE
+# absorción equivalente total del recinto
+A = (S_piso*alpha_piso +
+     S_techo*alpha_techo +
+     A_pared)
 
+# coeficiente de absorción promedio
+alpha_prom = A / S_total
 
-# ------------------------------------------------
-# CÁLCULO DE ABSORCIÓN POR BANDAS
-# ------------------------------------------------
+# TIEMPO DE REVERBERACIÓN
+# fórmula de Sabine
+RT_sabine = 0.161 * V / A
 
-# Lista donde se almacenará la absorción equivalente
-A = []
+# fórmula de Eyring
+RT_eyring = 0.161 * V / (-S_total * np.log(1-alpha_prom))
 
-# Se recorre cada banda de frecuencia
-for f in freq:
+# fórmula de Millington
+RT_millington = 0.161 * V / (
+    -(S_piso*np.log(1-alpha_piso)
+    + S_techo*np.log(1-alpha_techo)
+    + A_pared*np.log(1-alpha_prom)/alpha_prom)
+)
 
-    suma = 0
 
-    # Se suma área * coeficiente de absorción
-    for i in range(n):
-        suma += areas[i] * coef[i][f]
+# RECORRIDO LIBRE MEDIO
+# distancia promedio que recorre una onda entre reflexiones
+l = 4*V / S_total
 
-    # Se guarda el resultado
-    A.append(suma)
 
+# REFLEXIONES
+# número promedio de reflexiones del sonido
+n_reflexiones = c * RT_sabine / l
 
-# Área total del recinto
-S = sum(areas)
+# tiempo entre reflexiones
+tau = l / c
 
+# INTENSIDAD DE LA FUENTE
+# intensidad directa de la fuente
+If = W / (4*np.pi*r**2)
 
-# Coeficiente de absorción promedio
-alpha_prom = [A[i] / S for i in range(len(freq))]
+# nivel de intensidad sonora
+LI = 10*np.log10(If/I0)
 
+# CONSTANTE DE SALA
+# constante de sala
+R = A / (1-alpha_prom)
 
-# ------------------------------------------------
-# TIEMPO DE REVERBERACIÓN - SABINE
-# ------------------------------------------------
 
-RT_sabine = []
+# CAMPO REVERBERADO
+# intensidad del campo reverberado
+Ir = 4*W / R
 
-# Fórmula de Sabine
-for a in A:
-    RT_sabine.append(0.161 * V / a)
-
-
-# ------------------------------------------------
-# TIEMPO DE REVERBERACIÓN - EYRING
-# ------------------------------------------------
-
-RT_eyring = []
-
-for alpha in alpha_prom:
-    RT_eyring.append(0.161 * V / (-S * np.log(1 - alpha)))
-
-
-# ------------------------------------------------
-# TIEMPO DE REVERBERACIÓN - MILLINGTON
-# ------------------------------------------------
-
-RT_millington = []
-
-for f in freq:
-
-    suma = 0
-
-    for i in range(n):
-
-        alpha = coef[i][f]
-
-        suma += areas[i] * np.log(1 - alpha)
-
-    RT_millington.append(0.161 * V / (-suma))
-
-
-# ------------------------------------------------
-# DISTANCIA CRÍTICA
-# ------------------------------------------------
-
-Dc = []
-
-# Se calcula para cada banda
-for T in RT_sabine:
-    Dc.append(0.057 * np.sqrt(Q * V / T))
-
-
-# ------------------------------------------------
-# IMPRESIÓN DE RESULTADOS
-# ------------------------------------------------
-
-print("\nRESULTADOS\n")
-
-for i in range(len(freq)):
-
-    print("Frecuencia:", freq[i], "Hz")
-
-    print("Sabine:", round(RT_sabine[i], 2), "s")
-
-    print("Eyring:", round(RT_eyring[i], 2), "s")
-
-    print("Millington:", round(RT_millington[i], 2), "s")
-
-    print("Distancia crítica:", round(Dc[i], 2), "m")
-
-    print()
-
-
-# ------------------------------------------------
-# GRÁFICA DEL TIEMPO DE REVERBERACIÓN
-# ------------------------------------------------
-
-# Se grafican los resultados
-plt.plot(freq, RT_sabine, 'o-', label="Sabine")
-
-plt.plot(freq, RT_eyring, 's-', label="Eyring")
-
-plt.plot(freq, RT_millington, '^-', label="Millington")
-
-# Etiquetas de los ejes
-plt.xlabel("Frecuencia (Hz)")
-plt.ylabel("Tiempo de reverberación (s)")
-
-# Título
-plt.title("Tiempo de reverberación vs frecuencia")
-
-# Cuadrícula
-plt.grid(True)
-
-# Leyenda
-plt.legend()
-
-# Mostrar la gráfica
-plt.show()
-
-c = 343
-
-# Recorrido libre medio
-l = 4*V/S
-
-# Usamos RT a 500 Hz
-T = RT_sabine[2]
-
-# Numero promedio de reflexiones
-N = c*T/l
-
-# Tiempo entre reflexiones
-t_ref = l/c
-
-# Suposiciones para la fuente
-W = 0.01
-r = 2
-
-# Intensidad acustica
-I = W/(4*np.pi*r**2)
-
-# Nivel de intensidad
-LI = 10*np.log10(I/1e-12)
-
-# Campo reverberado
-Ir = 4*W/A[2]
-
-# Constante de sala
-R = A[2]/(1-alpha_prom[2])
-
-# Nivel de potencia sonora
-Lw = 10*np.log10(W/1e-12)
-
-# Nivel de presion sonora total
+# NIVEL DE PRESIÓN SONORA TOTAL
+# combinación campo directo + campo reverberado
 Lp = Lw + 10*np.log10((Q/(4*np.pi*r**2)) + (4/R))
 
-# Distancia critica
-Dc = 0.057*np.sqrt(Q*V/T)
+# DISTANCIA CRÍTICA
+# distancia donde campo directo = campo reverberado
+Dc = 0.057*np.sqrt(Q*R)
 
-# Absorcion del aire
-m = 0.001
-A_aire = 4*m*V
+# =====================================
+# ABSORCIÓN DEL AIRE
+# =====================================
 
-print("\nPARAMETROS ACUSTICOS ADICIONALES\n")
+# nivel considerando atenuación por aire
+Lp_r = Lp - 20*np.log10(r) - m*r
 
-print("Recorrido libre medio:",round(l,2),"m")
-print("Numero promedio de reflexiones:",round(N,2))
-print("Tiempo entre reflexiones:",round(t_ref,4),"s")
-print("Intensidad acustica:",I,"W/m2")
-print("Nivel de intensidad:",round(LI,2),"dB")
-print("Campo reverberado:",round(Ir,6))
-print("Constante de sala:",round(R,2))
-print("Nivel de presion sonora total:",round(Lp,2),"dB")
-print("Distancia critica:",round(Dc,2),"m")
-print("Absorcion del aire:",round(A_aire,4))
+# RESULTADOS GENERALES
+print("\n========== DATOS DEL RECINTO ==========")
+
+print("Volumen del recinto:", round(V,2),"m3")
+print("Superficie total:", round(S_total,2),"m2")
+print("Recorrido libre medio:", round(l,3),"m")
+print("Tiempo entre reflexiones:", round(tau,5),"s")
+
+print("\nIntensidad acústica de la fuente:", round(If,8),"W/m2")
+print("Nivel de intensidad:", round(LI,2),"dB")
+
+print("\nConstante de sala por banda:")
+print(np.round(R,3))
+
+print("\nCampo reverberado por banda:")
+print(np.round(Ir,8))
+
+print("\nNivel presión sonora total:")
+print(np.round(Lp,2))
+
+print("\nDistancia crítica por banda:")
+print(np.round(Dc,3))
+
+print("\nNivel con absorción del aire:")
+print(np.round(Lp_r,2))
+
+
+# RESULTADOS POR BANDA
+print("\n========== RESULTADOS POR BANDA ==========")
+
+# imprimir resultados para cada banda de frecuencia
+for i in range(len(frecuencias)):
+
+    print("\nFrecuencia:",frecuencias[i],"Hz")
+
+    print("RT Sabine:", round(RT_sabine[i],3),"s")
+    print("RT Eyring:", round(RT_eyring[i],3),"s")
+    print("RT Millington:", round(RT_millington[i],3),"s")
+
+    print("Número promedio de reflexiones:", round(n_reflexiones[i],2))
+
+
+# GRÁFICA
+# gráfica comparativa de tiempos de reverberación
+plt.plot(frecuencias,RT_sabine,'o-',label="Sabine")
+plt.plot(frecuencias,RT_eyring,'s-',label="Eyring")
+plt.plot(frecuencias,RT_millington,'^-',label="Millington")
+
+plt.xlabel("Frecuencia (Hz)")
+plt.ylabel("RT (s)")
+plt.title("Tiempo de Reverberación vs Frecuencia")
+
+plt.grid()
+plt.legend()
+
+plt.show()
